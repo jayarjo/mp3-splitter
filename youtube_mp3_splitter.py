@@ -10,10 +10,12 @@ import sys
 import re
 import subprocess
 import shutil
+import time
 from pathlib import Path
 from typing import List, Tuple
 import yt_dlp
 from pydub import AudioSegment
+from tqdm import tqdm
 
 
 def check_ffmpeg():
@@ -219,85 +221,125 @@ def split_audio_ffmpeg(audio_file: str, timestamps: List[Tuple[int, int, str]], 
     file_size_mb = os.path.getsize(audio_file) / (1024 * 1024)
     file_size_gb = file_size_mb / 1024
 
-    print(f"\nPreparing to split audio file: {audio_file}")
+    print(f"\nPreparing to split audio file: {audio_file}", flush=True)
     if file_size_gb >= 1.0:
-        print(f"File size: {file_size_gb:.2f} GB")
+        print(f"File size: {file_size_gb:.2f} GB", flush=True)
     else:
-        print(f"File size: {file_size_mb:.1f} MB")
+        print(f"File size: {file_size_mb:.1f} MB", flush=True)
 
     os.makedirs(output_dir, exist_ok=True)
 
     # Get duration using ffprobe (doesn't load the whole file)
-    print("Getting audio duration...")
+    print("Getting audio duration...", flush=True)
     try:
         total_duration_sec = get_audio_duration(audio_file)
         total_duration_ms = int(total_duration_sec * 1000)
     except Exception as e:
-        print(f"\n❌ Error getting audio duration: {e}", file=sys.stderr)
+        print(f"\n❌ Error getting audio duration: {e}", file=sys.stderr, flush=True)
         raise
 
     hours = int(total_duration_sec // 3600)
     minutes = int((total_duration_sec % 3600) // 60)
     seconds = int(total_duration_sec % 60)
 
-    print(f"Total duration: {hours:02d}:{minutes:02d}:{seconds:02d} ({total_duration_sec:.1f} seconds)")
-    print(f"\nSplitting into {len(timestamps)} tracks using ffmpeg (memory-efficient mode)...\n")
+    print(f"Total duration: {hours:02d}:{minutes:02d}:{seconds:02d} ({total_duration_sec:.1f} seconds)", flush=True)
+    print(f"\nSplitting into {len(timestamps)} tracks using ffmpeg (memory-efficient mode)...\n", flush=True)
 
-    for i, (start_ms, end_ms, track_name) in enumerate(timestamps, 1):
-        # If end_ms is None, use the total duration
-        if end_ms is None:
-            end_ms = total_duration_ms
+    # Track timing for ETA
+    start_time = time.time()
+    total_output_size = 0
 
-        # Validate timestamps
-        if start_ms > total_duration_ms:
-            print(f"⚠️  Warning: Track {i} start time ({start_ms/1000:.1f}s) is beyond audio duration ({total_duration_ms/1000:.1f}s). Skipping.", file=sys.stderr)
-            continue
+    # Create progress bar
+    with tqdm(total=len(timestamps),
+              desc="Overall Progress",
+              unit="track",
+              bar_format='{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]') as pbar:
 
-        if end_ms > total_duration_ms:
-            print(f"⚠️  Warning: Track {i} end time ({end_ms/1000:.1f}s) is beyond audio duration. Using end of file.", file=sys.stderr)
-            end_ms = total_duration_ms
+        for i, (start_ms, end_ms, track_name) in enumerate(timestamps, 1):
+            # If end_ms is None, use the total duration
+            if end_ms is None:
+                end_ms = total_duration_ms
 
-        # Sanitize filename
-        safe_filename = re.sub(r'[<>:"/\\|?*]', '_', track_name)
-        safe_filename = f"{i:03d} - {safe_filename}.mp3"
-        output_path = os.path.join(output_dir, safe_filename)
+            # Validate timestamps
+            if start_ms > total_duration_ms:
+                tqdm.write(f"⚠️  Warning: Track {i} start time ({start_ms/1000:.1f}s) is beyond audio duration ({total_duration_ms/1000:.1f}s). Skipping.")
+                continue
 
-        # Convert milliseconds to seconds for ffmpeg
-        start_sec = start_ms / 1000.0
-        duration_sec = (end_ms - start_ms) / 1000.0
+            if end_ms > total_duration_ms:
+                tqdm.write(f"⚠️  Warning: Track {i} end time ({end_ms/1000:.1f}s) is beyond audio duration. Using end of file.")
+                end_ms = total_duration_ms
 
-        print(f"[{i}/{len(timestamps)}] Extracting: {safe_filename}")
-        print(f"            Time: {start_sec:.1f}s - {end_ms/1000:.1f}s (duration: {duration_sec:.1f}s)")
+            # Sanitize filename
+            safe_filename = re.sub(r'[<>:"/\\|?*]', '_', track_name)
+            safe_filename = f"{i:03d} - {safe_filename}.mp3"
+            output_path = os.path.join(output_dir, safe_filename)
 
-        try:
-            # Use ffmpeg to extract the segment
-            # -ss: start time, -t: duration, -c copy would be fastest but we re-encode for consistency
-            cmd = [
-                'ffmpeg',
-                '-y',  # Overwrite output file if exists
-                '-ss', str(start_sec),  # Start time
-                '-t', str(duration_sec),  # Duration
-                '-i', audio_file,  # Input file
-                '-c:a', 'libmp3lame',  # MP3 codec
-                '-b:a', '192k',  # Bitrate
-                '-loglevel', 'error',  # Only show errors
-                output_path
-            ]
+            # Convert milliseconds to seconds for ffmpeg
+            start_sec = start_ms / 1000.0
+            duration_sec = (end_ms - start_ms) / 1000.0
 
-            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            # Update progress bar description with current track
+            track_short = track_name[:50] + '...' if len(track_name) > 50 else track_name
+            pbar.set_description(f"Processing: {track_short}")
 
-            # Get output file size
-            output_size_mb = os.path.getsize(output_path) / (1024 * 1024)
-            print(f"            ✓ Saved: {output_size_mb:.1f} MB\n")
+            try:
+                # Use ffmpeg to extract the segment with progress
+                cmd = [
+                    'ffmpeg',
+                    '-y',  # Overwrite output file if exists
+                    '-ss', str(start_sec),  # Start time
+                    '-t', str(duration_sec),  # Duration
+                    '-i', audio_file,  # Input file
+                    '-c:a', 'libmp3lame',  # MP3 codec
+                    '-b:a', '192k',  # Bitrate
+                    '-loglevel', 'error',  # Only show errors
+                    '-progress', 'pipe:1',  # Show progress to stdout
+                    output_path
+                ]
 
-        except subprocess.CalledProcessError as e:
-            print(f"  ❌ Error extracting track {i}: {e.stderr}", file=sys.stderr)
-            raise
-        except Exception as e:
-            print(f"  ❌ Error processing track {i}: {e}", file=sys.stderr)
-            raise
+                # Run ffmpeg and capture output
+                result = subprocess.run(cmd, capture_output=True, text=True, check=True)
 
-    print(f"✓ All {len(timestamps)} tracks saved to: {output_dir}")
+                # Get output file size
+                output_size_mb = os.path.getsize(output_path) / (1024 * 1024)
+                total_output_size += output_size_mb
+
+                # Calculate statistics
+                elapsed = time.time() - start_time
+                avg_time_per_track = elapsed / i
+                remaining_tracks = len(timestamps) - i
+                eta_seconds = avg_time_per_track * remaining_tracks
+
+                # Format ETA
+                eta_min = int(eta_seconds // 60)
+                eta_sec = int(eta_seconds % 60)
+
+                # Write track completion info
+                tqdm.write(f"✓ [{i:03d}/{len(timestamps)}] {safe_filename} ({output_size_mb:.1f} MB) | ETA: {eta_min:02d}:{eta_sec:02d}")
+
+            except subprocess.CalledProcessError as e:
+                tqdm.write(f"❌ Error extracting track {i}: {e.stderr}")
+                raise
+            except Exception as e:
+                tqdm.write(f"❌ Error processing track {i}: {e}")
+                raise
+
+            # Update progress bar
+            pbar.update(1)
+
+    # Final statistics
+    total_time = time.time() - start_time
+    total_min = int(total_time // 60)
+    total_sec = int(total_time % 60)
+    avg_time = total_time / len(timestamps)
+
+    print(f"\n{'='*60}", flush=True)
+    print(f"✓ Successfully split {len(timestamps)} tracks!", flush=True)
+    print(f"  Total output size: {total_output_size:.1f} MB ({total_output_size/1024:.2f} GB)", flush=True)
+    print(f"  Total time: {total_min:02d}:{total_sec:02d}", flush=True)
+    print(f"  Average time per track: {avg_time:.1f}s", flush=True)
+    print(f"  Output directory: {output_dir}", flush=True)
+    print(f"{'='*60}\n", flush=True)
 
 
 def split_audio(audio_file: str, timestamps: List[Tuple[int, int, str]], output_dir: str = "output"):

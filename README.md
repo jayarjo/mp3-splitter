@@ -12,6 +12,7 @@ A Python script to download YouTube videos as MP3 and split them into separate t
 - **Memory-efficient processing** - handles large files (tested with 3.36GB, 38+ hours)
 - Smart caching - skip re-downloading existing files
 - Optimized for long-form content (audiobooks, podcasts, lectures)
+- **Real-time progress bar** with ETA, current track, and statistics
 
 ## Quick Start with Docker (Recommended)
 
@@ -244,15 +245,27 @@ Total duration: 38:24:15 (138255.0 seconds)
 
 Splitting into 170 tracks using ffmpeg (memory-efficient mode)...
 
-[1/170] Extracting: 001 - Chapter 1 Crimson.mp3
-            Time: 65.0s - 769.0s (duration: 704.0s)
-            ✓ Saved: 10.2 MB
-
-[2/170] Extracting: 002 - Chapter 2 Situation.mp3
-            Time: 769.0s - 1711.0s (duration: 942.0s)
-            ✓ Saved: 13.7 MB
+Processing: Chapter 1 Crimson:  1%|█░░░░░░░░░| 2/170 [00:15<21:30, 0.13track/s]
+✓ [001/170] 001 - Chapter 1 Crimson.mp3 (10.2 MB) | ETA: 21:15
+✓ [002/170] 002 - Chapter 2 Situation.mp3 (13.7 MB) | ETA: 21:03
+✓ [003/170] 003 - Chapter 3 Melissa.mp3 (11.8 MB) | ETA: 20:48
 ...
+
+============================================================
+✓ Successfully split 170 tracks!
+  Total output size: 1854.3 MB (1.81 GB)
+  Total time: 22:35
+  Average time per track: 7.9s
+  Output directory: output
+============================================================
 ```
+
+**Progress Bar Features:**
+- Real-time progress indicator with percentage complete
+- Current track being processed shown in progress bar
+- ETA (estimated time remaining) calculated after each track
+- Individual track completion with file size
+- Final summary with total statistics
 
 ## Output
 
