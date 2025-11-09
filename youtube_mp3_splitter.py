@@ -249,11 +249,13 @@ def split_audio_ffmpeg(audio_file: str, timestamps: List[Tuple[int, int, str]], 
     start_time = time.time()
     total_output_size = 0
 
-    # Create progress bar
+    # Create progress bar with fixed description
     with tqdm(total=len(timestamps),
               desc="Overall Progress",
               unit="track",
-              bar_format='{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]') as pbar:
+              bar_format='{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]',
+              position=0,
+              leave=True) as pbar:
 
         for i, (start_ms, end_ms, track_name) in enumerate(timestamps, 1):
             # If end_ms is None, use the total duration
@@ -278,9 +280,8 @@ def split_audio_ffmpeg(audio_file: str, timestamps: List[Tuple[int, int, str]], 
             start_sec = start_ms / 1000.0
             duration_sec = (end_ms - start_ms) / 1000.0
 
-            # Update progress bar description with current track
-            track_short = track_name[:50] + '...' if len(track_name) > 50 else track_name
-            pbar.set_description(f"Processing: {track_short}")
+            # Show what we're processing now (above the progress bar)
+            tqdm.write(f"\n⏳ [{i:03d}/{len(timestamps)}] Processing: {track_name}")
 
             try:
                 # Use ffmpeg to extract the segment with progress
@@ -315,13 +316,13 @@ def split_audio_ffmpeg(audio_file: str, timestamps: List[Tuple[int, int, str]], 
                 eta_sec = int(eta_seconds % 60)
 
                 # Write track completion info
-                tqdm.write(f"✓ [{i:03d}/{len(timestamps)}] {safe_filename} ({output_size_mb:.1f} MB) | ETA: {eta_min:02d}:{eta_sec:02d}")
+                tqdm.write(f"   ✓ Saved: {safe_filename} ({output_size_mb:.1f} MB) | ETA: {eta_min:02d}:{eta_sec:02d}")
 
             except subprocess.CalledProcessError as e:
-                tqdm.write(f"❌ Error extracting track {i}: {e.stderr}")
+                tqdm.write(f"   ❌ Error extracting track {i}: {e.stderr}")
                 raise
             except Exception as e:
-                tqdm.write(f"❌ Error processing track {i}: {e}")
+                tqdm.write(f"   ❌ Error processing track {i}: {e}")
                 raise
 
             # Update progress bar

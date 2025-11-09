@@ -245,11 +245,17 @@ Total duration: 38:24:15 (138255.0 seconds)
 
 Splitting into 170 tracks using ffmpeg (memory-efficient mode)...
 
-Processing: Chapter 1 Crimson:  1%|█░░░░░░░░░| 2/170 [00:15<21:30, 0.13track/s]
-✓ [001/170] 001 - Chapter 1 Crimson.mp3 (10.2 MB) | ETA: 21:15
-✓ [002/170] 002 - Chapter 2 Situation.mp3 (13.7 MB) | ETA: 21:03
-✓ [003/170] 003 - Chapter 3 Melissa.mp3 (11.8 MB) | ETA: 20:48
+⏳ [001/170] Processing: Chapter 1 Crimson
+   ✓ Saved: 001 - Chapter 1 Crimson.mp3 (10.2 MB) | ETA: 21:15
+
+⏳ [002/170] Processing: Chapter 2 Situation
+   ✓ Saved: 002 - Chapter 2 Situation.mp3 (13.7 MB) | ETA: 21:03
+
+⏳ [003/170] Processing: Chapter 3 Melissa
+   ✓ Saved: 003 - Chapter 3 Melissa.mp3 (11.8 MB) | ETA: 20:48
 ...
+
+Overall Progress:  2%|█░░░░░░░░░░░░░░░░░| 3/170 [00:45<21:30, 0.13track/s]
 
 ============================================================
 ✓ Successfully split 170 tracks!
@@ -261,8 +267,8 @@ Processing: Chapter 1 Crimson:  1%|█░░░░░░░░░| 2/170 [00:15<
 ```
 
 **Progress Bar Features:**
-- Real-time progress indicator with percentage complete
-- Current track being processed shown in progress bar
+- Real-time progress bar on stable line (doesn't jump around)
+- Current track being processed shown above progress bar
 - ETA (estimated time remaining) calculated after each track
 - Individual track completion with file size
 - Final summary with total statistics
