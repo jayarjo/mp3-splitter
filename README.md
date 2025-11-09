@@ -10,7 +10,54 @@ A Python script to download YouTube videos as MP3 and split them into separate t
 - Automatic track numbering
 - Clean, sanitized filenames
 
-## Requirements
+## Quick Start with Docker (Recommended)
+
+The easiest way to use this tool is with Docker - no need to install Python, ffmpeg, or any dependencies on your host machine!
+
+### Requirements
+- Docker (https://docs.docker.com/get-docker/)
+
+### Usage
+
+**Linux/macOS:**
+```bash
+./run.sh "YOUTUBE_URL" timestamps.txt
+```
+
+**Windows:**
+```bash
+run.bat "YOUTUBE_URL" timestamps.txt
+```
+
+The first run will automatically build the Docker image. Subsequent runs will be faster.
+
+### Docker Commands
+
+**Build the image manually:**
+```bash
+docker build -t youtube-mp3-splitter:latest .
+```
+
+**Run with Docker directly:**
+```bash
+docker run --rm \
+  -v "$(pwd):/data" \
+  -v "$(pwd)/output:/app/output" \
+  -v "$(pwd)/downloads:/app/downloads" \
+  -w /data \
+  youtube-mp3-splitter:latest "YOUTUBE_URL" timestamps.txt
+```
+
+**Using docker-compose:**
+```bash
+docker-compose run --rm mp3-splitter "YOUTUBE_URL" timestamps.txt
+```
+
+## Manual Installation (Alternative)
+
+If you prefer not to use Docker, you can install everything manually:
+
+### Requirements
 
 - Python 3.7+
 - ffmpeg (required by yt-dlp and pydub)
@@ -31,7 +78,7 @@ brew install ffmpeg
 **Windows:**
 Download from https://ffmpeg.org/download.html
 
-## Installation
+### Installation Steps
 
 1. Clone or download this repository
 
@@ -57,7 +104,7 @@ venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-## Usage
+## Manual Usage
 
 ### Basic usage:
 ```bash

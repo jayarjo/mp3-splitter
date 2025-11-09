@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  mp3-splitter:
+    build: .
+    image: youtube-mp3-splitter:latest
+    container_name: mp3-splitter
+    volumes:
+      # Mount current directory for timestamps file access
+      - ./:/data
+      # Mount output directory
+      - ./output:/app/output
+      # Mount downloads directory
+      - ./downloads:/app/downloads
+    working_dir: /data
+    # Override entrypoint to allow passing arguments
+    entrypoint: ["python", "/app/youtube_mp3_splitter.py"]

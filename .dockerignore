@@ -1,0 +1,14 @@
+venv/
+__pycache__/
+*.pyc
+*.mp3
+*.wav
+*.m4a
+downloads/
+output/
+.git/
+.gitignore
+README.md
+timestamps_example.txt
+docker-compose.yml
+.dockerignore
