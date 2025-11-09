@@ -20,8 +20,36 @@ The easiest way to use this tool is with Docker - no need to install Python, ffm
 
 ### Requirements
 - Docker (https://docs.docker.com/get-docker/)
+- Make (optional but recommended)
 
-### Usage
+### Easiest: Using Makefile (Linux/macOS)
+
+```bash
+# Build the Docker image
+make build
+
+# Split a YouTube video
+make split URL="YOUTUBE_URL" TIMESTAMPS=timestamps.txt
+
+# With options
+make split URL="YOUTUBE_URL" TIMESTAMPS=timestamps.txt OUTPUT=my_chapters
+make split URL="YOUTUBE_URL" TIMESTAMPS=timestamps.txt FORCE=1
+make split URL="YOUTUBE_URL" TIMESTAMPS=timestamps.txt KEEP=1
+
+# See all available commands
+make help
+
+# Clean up output files
+make clean
+```
+
+**Quick reference:**
+- `make build` or `make b` - Build Docker image
+- `make split` or `make s` - Split video (requires URL and TIMESTAMPS)
+- `make clean` or `make c` - Clean output directories
+- `make help` or `make h` - Show all commands
+
+### Alternative: Using Shell Scripts
 
 **Linux/macOS:**
 ```bash
@@ -35,7 +63,7 @@ run.bat "YOUTUBE_URL" timestamps.txt
 
 The first run will automatically build the Docker image. Subsequent runs will be faster.
 
-### Docker Commands
+### Advanced: Docker Commands
 
 **Build the image manually:**
 ```bash
@@ -63,6 +91,47 @@ docker-compose run --rm mp3-splitter "YOUTUBE_URL" timestamps.txt
 ```
 
 **Note:** Downloaded files are saved to `./downloads/` on your host machine. If a file already exists, it will be reused automatically (skipping the download). This is useful for re-splitting with different timestamps. Use `--force-download` to override.
+
+## Makefile Commands Reference
+
+The Makefile provides convenient shortcuts for all Docker operations:
+
+| Command | Shortcut | Description |
+|---------|----------|-------------|
+| `make help` | `make h` | Show all available commands with descriptions |
+| `make build` | `make b` | Build the Docker image |
+| `make rebuild` | - | Rebuild image from scratch (no cache) |
+| `make split` | `make s` | Split YouTube video (requires URL and TIMESTAMPS) |
+| `make clean` | `make c` | Clean output and downloads directories |
+| `make clean-all` | - | Clean everything including Docker image |
+| `make shell` | - | Open bash shell in container for debugging |
+| `make version` | - | Show version information |
+
+**Makefile Variables:**
+- `URL` - YouTube URL (required)
+- `TIMESTAMPS` - Path to timestamps file (required)
+- `OUTPUT` - Custom output directory (optional, default: output)
+- `DOWNLOAD_DIR` - Custom download directory (optional, default: downloads)
+- `KEEP=1` - Keep original downloaded file (optional)
+- `FORCE=1` - Force re-download (optional)
+
+**Examples:**
+```bash
+# Basic usage
+make split URL="https://youtube.com/watch?v=..." TIMESTAMPS=timestamps_audiobook.txt
+
+# Custom output directory
+make split URL="https://youtube.com/..." TIMESTAMPS=chapters.txt OUTPUT=audiobook_chapters
+
+# Force re-download with custom directories
+make split URL="https://youtube.com/..." TIMESTAMPS=chapters.txt FORCE=1 DOWNLOAD_DIR=temp
+
+# Keep the original downloaded file
+make split URL="https://youtube.com/..." TIMESTAMPS=chapters.txt KEEP=1
+
+# Debug: Open shell in container
+make shell
+```
 
 ## Manual Installation (Alternative)
 
