@@ -11,6 +11,7 @@ A Python script to download YouTube videos as MP3 and split them into separate t
 - Clean, sanitized filenames
 - **Memory-efficient processing** - handles large files (tested with 3.36GB, 38+ hours)
 - Smart caching - skip re-downloading existing files
+- **Resume capability** - automatically skips already processed tracks if interrupted
 - Optimized for long-form content (audiobooks, podcasts, lectures)
 - **Real-time progress bar** with ETA, current track, and statistics
 
@@ -343,6 +344,43 @@ Overall Progress:  2%|█░░░░░░░░░░░░░░░░░| 3/
 - ETA (estimated time remaining) calculated after each track
 - Individual track completion with file size
 - Final summary with total statistics
+
+## Resume Capability
+
+The script automatically resumes if interrupted! If the process stops for any reason (power failure, Ctrl+C, network issues), simply run the same command again.
+
+**How it works:**
+- Before processing each track, checks if output file already exists
+- If file exists and is valid (>100KB), automatically skips it
+- Continues with remaining unprocessed tracks
+- If file exists but is suspiciously small (<100KB), re-processes it (likely corrupted)
+
+**Example resumed session:**
+```
+⏭️  [001/170] Skipping (already exists): 001 - Chapter 1 Crimson.mp3 (10.2 MB)
+⏭️  [002/170] Skipping (already exists): 002 - Chapter 2 Situation.mp3 (13.7 MB)
+⏭️  [003/170] Skipping (already exists): 003 - Chapter 3 Melissa.mp3 (11.8 MB)
+
+⏳ [004/170] Processing: Chapter 4 Divination
+   ✓ Saved: 004 - Chapter 4 Divination.mp3 (12.1 MB) | ETA: 18:32
+...
+
+============================================================
+✓ Complete!
+  Total tracks: 170
+  Processed: 167 | Skipped: 3 (already existed)
+  Total output size: 1854.3 MB (1.81 GB)
+  Processing time: 18:42
+  Average time per track: 6.7s
+  Output directory: output
+============================================================
+```
+
+**Benefits:**
+- Safe to interrupt at any time (Ctrl+C)
+- No wasted processing if something goes wrong
+- Perfect for very large jobs (100+ chapters)
+- Automatic corruption detection (re-processes tiny files)
 
 ## Output
 

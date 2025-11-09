@@ -248,6 +248,8 @@ def split_audio_ffmpeg(audio_file: str, timestamps: List[Tuple[int, int, str]], 
     # Track timing for ETA
     start_time = time.time()
     total_output_size = 0
+    skipped_count = 0
+    processed_count = 0
 
     # Create progress bar with fixed description
     with tqdm(total=len(timestamps),
@@ -265,6 +267,7 @@ def split_audio_ffmpeg(audio_file: str, timestamps: List[Tuple[int, int, str]], 
             # Validate timestamps
             if start_ms > total_duration_ms:
                 tqdm.write(f"⚠️  Warning: Track {i} start time ({start_ms/1000:.1f}s) is beyond audio duration ({total_duration_ms/1000:.1f}s). Skipping.")
+                pbar.update(1)
                 continue
 
             if end_ms > total_duration_ms:
@@ -275,6 +278,21 @@ def split_audio_ffmpeg(audio_file: str, timestamps: List[Tuple[int, int, str]], 
             safe_filename = re.sub(r'[<>:"/\\|?*]', '_', track_name)
             safe_filename = f"{i:03d} - {safe_filename}.mp3"
             output_path = os.path.join(output_dir, safe_filename)
+
+            # Check if file already exists (resume capability)
+            if os.path.exists(output_path):
+                existing_size = os.path.getsize(output_path)
+                # Only skip if file has reasonable size (>100KB) to avoid keeping corrupted files
+                if existing_size > 100 * 1024:  # 100KB minimum
+                    existing_size_mb = existing_size / (1024 * 1024)
+                    total_output_size += existing_size_mb
+                    skipped_count += 1
+                    tqdm.write(f"⏭️  [{i:03d}/{len(timestamps)}] Skipping (already exists): {safe_filename} ({existing_size_mb:.1f} MB)")
+                    pbar.update(1)
+                    continue
+                else:
+                    # File exists but is too small, probably corrupted - reprocess it
+                    tqdm.write(f"⚠️  [{i:03d}/{len(timestamps)}] Re-processing (file too small): {safe_filename}")
 
             # Convert milliseconds to seconds for ffmpeg
             start_sec = start_ms / 1000.0
@@ -304,19 +322,23 @@ def split_audio_ffmpeg(audio_file: str, timestamps: List[Tuple[int, int, str]], 
                 # Get output file size
                 output_size_mb = os.path.getsize(output_path) / (1024 * 1024)
                 total_output_size += output_size_mb
+                processed_count += 1
 
-                # Calculate statistics
-                elapsed = time.time() - start_time
-                avg_time_per_track = elapsed / i
-                remaining_tracks = len(timestamps) - i
-                eta_seconds = avg_time_per_track * remaining_tracks
+                # Calculate statistics (based on processed tracks only)
+                if processed_count > 0:
+                    elapsed = time.time() - start_time
+                    avg_time_per_track = elapsed / processed_count
+                    remaining_to_process = len(timestamps) - i
+                    eta_seconds = avg_time_per_track * remaining_to_process
 
-                # Format ETA
-                eta_min = int(eta_seconds // 60)
-                eta_sec = int(eta_seconds % 60)
+                    # Format ETA
+                    eta_min = int(eta_seconds // 60)
+                    eta_sec = int(eta_seconds % 60)
 
-                # Write track completion info
-                tqdm.write(f"   ✓ Saved: {safe_filename} ({output_size_mb:.1f} MB) | ETA: {eta_min:02d}:{eta_sec:02d}")
+                    # Write track completion info
+                    tqdm.write(f"   ✓ Saved: {safe_filename} ({output_size_mb:.1f} MB) | ETA: {eta_min:02d}:{eta_sec:02d}")
+                else:
+                    tqdm.write(f"   ✓ Saved: {safe_filename} ({output_size_mb:.1f} MB)")
 
             except subprocess.CalledProcessError as e:
                 tqdm.write(f"   ❌ Error extracting track {i}: {e.stderr}")
@@ -332,13 +354,19 @@ def split_audio_ffmpeg(audio_file: str, timestamps: List[Tuple[int, int, str]], 
     total_time = time.time() - start_time
     total_min = int(total_time // 60)
     total_sec = int(total_time % 60)
-    avg_time = total_time / len(timestamps)
+    avg_time = total_time / processed_count if processed_count > 0 else 0
 
     print(f"\n{'='*60}", flush=True)
-    print(f"✓ Successfully split {len(timestamps)} tracks!", flush=True)
+    print(f"✓ Complete!", flush=True)
+    print(f"  Total tracks: {len(timestamps)}", flush=True)
+    if skipped_count > 0:
+        print(f"  Processed: {processed_count} | Skipped: {skipped_count} (already existed)", flush=True)
+    else:
+        print(f"  Processed: {processed_count}", flush=True)
     print(f"  Total output size: {total_output_size:.1f} MB ({total_output_size/1024:.2f} GB)", flush=True)
-    print(f"  Total time: {total_min:02d}:{total_sec:02d}", flush=True)
-    print(f"  Average time per track: {avg_time:.1f}s", flush=True)
+    if processed_count > 0:
+        print(f"  Processing time: {total_min:02d}:{total_sec:02d}", flush=True)
+        print(f"  Average time per track: {avg_time:.1f}s", flush=True)
     print(f"  Output directory: {output_dir}", flush=True)
     print(f"{'='*60}\n", flush=True)
 
