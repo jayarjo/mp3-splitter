@@ -150,16 +150,26 @@ The script supports two timestamp formats:
 07:30 Third Track
 ```
 
+### Format 3: Long-form content (audiobooks, podcasts)
+```
+1:05 Chapter 1 Crimson
+12:49 Chapter 2 Situation
+1:01:18 Chapter 3 The Long Chapter
+2:15:30 Chapter 4 Final Chapter
+```
+
 **Supported time formats:**
-- `HH:MM:SS` (hours:minutes:seconds)
-- `MM:SS` (minutes:seconds)
-- `SS` (seconds)
+- `HH:MM:SS` (hours:minutes:seconds) - e.g., `1:23:45`
+- `MM:SS` (minutes:seconds) - e.g., `12:49`
+- `M:SS` (minutes:seconds) - e.g., `1:05`
+- `SS` (seconds) - e.g., `45`
 
 **Notes:**
 - Lines starting with `#` are treated as comments
 - Empty lines are ignored
 - Track names will be sanitized for safe filenames
 - Output files are numbered (01, 02, 03, etc.)
+- The last track automatically extends to the end of the audio
 
 ## Example
 
