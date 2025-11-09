@@ -25,7 +25,5 @@ REM Run the container
 echo Running YouTube MP3 Splitter...
 docker run --rm ^
     -v "%cd%:/data" ^
-    -v "%cd%/output:/app/output" ^
-    -v "%cd%/downloads:/app/downloads" ^
     -w /data ^
     youtube-mp3-splitter:latest %*

@@ -8,10 +8,6 @@ services:
     volumes:
       # Mount current directory for timestamps file access
       - ./:/data
-      # Mount output directory
-      - ./output:/app/output
-      # Mount downloads directory
-      - ./downloads:/app/downloads
     working_dir: /data
     # Override entrypoint to allow passing arguments
     entrypoint: ["python", "/app/youtube_mp3_splitter.py"]

@@ -8,10 +8,25 @@ import argparse
 import os
 import sys
 import re
+import subprocess
+import shutil
 from pathlib import Path
 from typing import List, Tuple
 import yt_dlp
 from pydub import AudioSegment
+
+
+def check_ffmpeg():
+    """Check if ffmpeg is available."""
+    if not shutil.which('ffmpeg'):
+        print("❌ Error: ffmpeg is not installed or not in PATH", file=sys.stderr)
+        print("ffmpeg is required for audio processing.", file=sys.stderr)
+        print("\nInstallation instructions:", file=sys.stderr)
+        print("  Ubuntu/Debian: sudo apt install ffmpeg", file=sys.stderr)
+        print("  macOS: brew install ffmpeg", file=sys.stderr)
+        print("  Windows: Download from https://ffmpeg.org/download.html", file=sys.stderr)
+        return False
+    return True
 
 
 def parse_timestamp(timestamp: str) -> int:
@@ -171,18 +186,40 @@ def split_audio(audio_file: str, timestamps: List[Tuple[int, int, str]], output_
         timestamps: List of (start_ms, end_ms, track_name) tuples
         output_dir: Directory to save split files
     """
+    # Verify file exists
+    if not os.path.exists(audio_file):
+        raise FileNotFoundError(f"Audio file not found: {audio_file}")
+
+    file_size_mb = os.path.getsize(audio_file) / (1024 * 1024)
+    print(f"\nLoading audio file: {audio_file}")
+    print(f"File size: {file_size_mb:.1f} MB")
+
     os.makedirs(output_dir, exist_ok=True)
 
-    print(f"\nLoading audio file: {audio_file}")
-    audio = AudioSegment.from_mp3(audio_file)
+    try:
+        audio = AudioSegment.from_mp3(audio_file)
+    except Exception as e:
+        print(f"\nError loading MP3 file. This usually means ffmpeg is not installed or not accessible.", file=sys.stderr)
+        print(f"Technical error: {e}", file=sys.stderr)
+        raise
+
     total_duration = len(audio)
 
-    print(f"Total duration: {total_duration / 1000:.2f} seconds")
+    print(f"Total duration: {total_duration / 1000:.2f} seconds ({total_duration / 60000:.1f} minutes)")
     print(f"\nSplitting into {len(timestamps)} tracks...\n")
 
     for i, (start_ms, end_ms, track_name) in enumerate(timestamps, 1):
         # If end_ms is None, use the total duration
         if end_ms is None:
+            end_ms = total_duration
+
+        # Validate timestamps
+        if start_ms > total_duration:
+            print(f"Warning: Track {i} start time ({start_ms/1000:.1f}s) is beyond audio duration ({total_duration/1000:.1f}s). Skipping.", file=sys.stderr)
+            continue
+
+        if end_ms > total_duration:
+            print(f"Warning: Track {i} end time ({end_ms/1000:.1f}s) is beyond audio duration. Using end of file.", file=sys.stderr)
             end_ms = total_duration
 
         # Sanitize filename
@@ -193,12 +230,16 @@ def split_audio(audio_file: str, timestamps: List[Tuple[int, int, str]], output_
         print(f"Extracting: {safe_filename}")
         print(f"  Time: {start_ms/1000:.2f}s - {end_ms/1000:.2f}s")
 
-        # Extract segment
-        segment = audio[start_ms:end_ms]
+        try:
+            # Extract segment
+            segment = audio[start_ms:end_ms]
 
-        # Export
-        segment.export(output_path, format="mp3", bitrate="192k")
-        print(f"  Saved: {output_path}\n")
+            # Export
+            segment.export(output_path, format="mp3", bitrate="192k")
+            print(f"  Saved: {output_path}\n")
+        except Exception as e:
+            print(f"  Error exporting track {i}: {e}", file=sys.stderr)
+            raise
 
     print(f"All tracks saved to: {output_dir}")
 
@@ -241,6 +282,10 @@ Or simply:
 
     args = parser.parse_args()
 
+    # Check if ffmpeg is available
+    if not check_ffmpeg():
+        sys.exit(1)
+
     # Check if timestamps file exists
     if not os.path.isfile(args.timestamps):
         print(f"Error: Timestamps file not found: {args.timestamps}", file=sys.stderr)
@@ -260,14 +305,32 @@ Or simply:
     try:
         audio_file = download_youtube_audio(args.url, args.download_dir, args.force_download)
     except Exception as e:
-        print(f"Error downloading audio: {e}", file=sys.stderr)
+        print(f"\n❌ Error downloading audio: {e}", file=sys.stderr)
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+
+    # Verify the downloaded file exists
+    if not os.path.exists(audio_file):
+        print(f"\n❌ Error: Downloaded file not found at: {audio_file}", file=sys.stderr)
+        print(f"Download directory contents:", file=sys.stderr)
+        try:
+            for item in os.listdir(args.download_dir):
+                print(f"  - {item}", file=sys.stderr)
+        except:
+            pass
         sys.exit(1)
 
     # Split audio
     try:
         split_audio(audio_file, timestamps, args.output)
+    except FileNotFoundError as e:
+        print(f"\n❌ {e}", file=sys.stderr)
+        sys.exit(1)
     except Exception as e:
-        print(f"Error splitting audio: {e}", file=sys.stderr)
+        print(f"\n❌ Error splitting audio: {e}", file=sys.stderr)
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
 
     # Clean up original file if requested

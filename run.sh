@@ -32,7 +32,5 @@ mkdir -p downloads output
 echo -e "${GREEN}Running YouTube MP3 Splitter...${NC}"
 docker run --rm \
     -v "$(pwd):/data" \
-    -v "$(pwd)/output:/app/output" \
-    -v "$(pwd)/downloads:/app/downloads" \
     -w /data \
     youtube-mp3-splitter:latest "$@"
