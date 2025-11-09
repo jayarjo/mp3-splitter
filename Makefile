@@ -10,14 +10,14 @@ help: ## Show this help message
 	@echo "YouTube MP3 Splitter - Makefile Commands"
 	@echo "=========================================="
 	@echo ""
-	@echo "Usage: make [command]"
+	@echo "Usage: make [command] [arguments]"
 	@echo ""
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "Examples:"
-	@echo "  make split URL=\"https://youtube.com/...\" TIMESTAMPS=timestamps.txt"
-	@echo "  make split URL=\"https://youtube.com/...\" TIMESTAMPS=timestamps.txt OUTPUT=my_chapters"
-	@echo "  make split URL=\"https://youtube.com/...\" TIMESTAMPS=timestamps.txt FORCE=1"
+	@echo "  make run https://youtube.com/watch?v=... timestamps.txt"
+	@echo "  make run https://youtube.com/... timestamps.txt --force-download"
+	@echo "  make run https://youtube.com/... timestamps.txt -o my_chapters --keep-original"
 
 build: ## Build the Docker image
 	@echo "Building Docker image..."
@@ -29,31 +29,25 @@ rebuild: ## Rebuild the Docker image (no cache)
 	@docker build --no-cache -t $(IMAGE_NAME) .
 	@echo "✓ Rebuild complete!"
 
-run: ## Run the container (alias for split)
-	@$(MAKE) split
-
-split: ## Split YouTube video (requires URL and TIMESTAMPS vars)
+run: ## Run the splitter: make run URL TIMESTAMPS [OPTIONS]
+	@if [ -z "$(filter-out $@,$(MAKECMDGOALS))" ]; then \
+		echo "❌ Error: URL and TIMESTAMPS are required"; \
+		echo "Usage: make run <youtube-url> <timestamps-file> [options]"; \
+		echo "Example: make run https://youtube.com/... timestamps.txt --force-download"; \
+		exit 1; \
+	fi
 	@mkdir -p downloads output
-ifndef URL
-	@echo "❌ Error: URL is required"
-	@echo "Usage: make split URL=\"https://youtube.com/...\" TIMESTAMPS=timestamps.txt"
-	@exit 1
-endif
-ifndef TIMESTAMPS
-	@echo "❌ Error: TIMESTAMPS file is required"
-	@echo "Usage: make split URL=\"https://youtube.com/...\" TIMESTAMPS=timestamps.txt"
-	@exit 1
-endif
 	@echo "Starting YouTube MP3 Splitter..."
 	@docker run --rm \
 		-v "$$(pwd):/data" \
 		-w /data \
-		$(IMAGE_NAME) \
-		$(if $(OUTPUT),-o $(OUTPUT),) \
-		$(if $(DOWNLOAD_DIR),-d $(DOWNLOAD_DIR),) \
-		$(if $(KEEP),--keep-original,) \
-		$(if $(FORCE),--force-download,) \
-		"$(URL)" "$(TIMESTAMPS)"
+		$(IMAGE_NAME) $(filter-out $@,$(MAKECMDGOALS))
+
+split: run ## Alias for 'run'
+
+# This allows any arguments after the target to be treated as arguments, not targets
+%:
+	@:
 
 shell: ## Open a shell in the container for debugging
 	@docker run --rm -it \
@@ -61,17 +55,6 @@ shell: ## Open a shell in the container for debugging
 		-w /data \
 		--entrypoint /bin/bash \
 		$(IMAGE_NAME)
-
-test: ## Test the script with example timestamps
-	@echo "Running test with example timestamps..."
-	@if [ ! -f timestamps_example.txt ]; then \
-		echo "❌ Error: timestamps_example.txt not found"; \
-		exit 1; \
-	fi
-	@docker run --rm \
-		-v "$$(pwd):/data" \
-		-w /data \
-		$(IMAGE_NAME) --help
 
 clean: ## Clean up generated files and directories
 	@echo "Cleaning up..."
@@ -92,7 +75,8 @@ logs: ## Show recent container logs (if any running)
 	@docker ps -a --filter ancestor=$(IMAGE_NAME) --format "{{.ID}}" | xargs -r docker logs
 
 # Quick shortcuts
-s: split ## Shortcut for 'split'
+s: run ## Shortcut for 'run'
+r: run ## Shortcut for 'run'
 b: build ## Shortcut for 'build'
 c: clean ## Shortcut for 'clean'
 h: help ## Shortcut for 'help'

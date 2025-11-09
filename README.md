@@ -28,13 +28,13 @@ The easiest way to use this tool is with Docker - no need to install Python, ffm
 # Build the Docker image
 make build
 
-# Split a YouTube video
-make split URL="YOUTUBE_URL" TIMESTAMPS=timestamps.txt
+# Split a YouTube video (natural syntax!)
+make run "https://youtube.com/watch?v=..." timestamps.txt
 
-# With options
-make split URL="YOUTUBE_URL" TIMESTAMPS=timestamps.txt OUTPUT=my_chapters
-make split URL="YOUTUBE_URL" TIMESTAMPS=timestamps.txt FORCE=1
-make split URL="YOUTUBE_URL" TIMESTAMPS=timestamps.txt KEEP=1
+# With standard command-line flags
+make run "https://youtube.com/..." timestamps.txt --force-download
+make run "https://youtube.com/..." timestamps.txt -o my_chapters
+make run "https://youtube.com/..." timestamps.txt --keep-original -o audiobook
 
 # See all available commands
 make help
@@ -45,7 +45,7 @@ make clean
 
 **Quick reference:**
 - `make build` or `make b` - Build Docker image
-- `make split` or `make s` - Split video (requires URL and TIMESTAMPS)
+- `make run` or `make r` or `make s` - Run the splitter with any arguments
 - `make clean` or `make c` - Clean output directories
 - `make help` or `make h` - Show all commands
 
@@ -94,44 +94,46 @@ docker-compose run --rm mp3-splitter "YOUTUBE_URL" timestamps.txt
 
 ## Makefile Commands Reference
 
-The Makefile provides convenient shortcuts for all Docker operations:
+The Makefile provides convenient shortcuts with **natural command-line syntax**:
 
 | Command | Shortcut | Description |
 |---------|----------|-------------|
 | `make help` | `make h` | Show all available commands with descriptions |
 | `make build` | `make b` | Build the Docker image |
 | `make rebuild` | - | Rebuild image from scratch (no cache) |
-| `make split` | `make s` | Split YouTube video (requires URL and TIMESTAMPS) |
+| `make run` | `make r`, `make s` | Run the splitter (accepts all standard arguments) |
 | `make clean` | `make c` | Clean output and downloads directories |
 | `make clean-all` | - | Clean everything including Docker image |
 | `make shell` | - | Open bash shell in container for debugging |
 | `make version` | - | Show version information |
 
-**Makefile Variables:**
-- `URL` - YouTube URL (required)
-- `TIMESTAMPS` - Path to timestamps file (required)
-- `OUTPUT` - Custom output directory (optional, default: output)
-- `DOWNLOAD_DIR` - Custom download directory (optional, default: downloads)
-- `KEEP=1` - Keep original downloaded file (optional)
-- `FORCE=1` - Force re-download (optional)
+**Natural Syntax - Just Like the Command Line:**
 
-**Examples:**
+The Makefile now accepts arguments exactly like you'd use them with the script itself!
+
 ```bash
 # Basic usage
-make split URL="https://youtube.com/watch?v=..." TIMESTAMPS=timestamps_audiobook.txt
+make run "https://youtube.com/watch?v=..." timestamps_audiobook.txt
 
-# Custom output directory
-make split URL="https://youtube.com/..." TIMESTAMPS=chapters.txt OUTPUT=audiobook_chapters
+# With standard flags (just like the CLI!)
+make run "https://youtube.com/..." timestamps.txt --force-download
+make run "https://youtube.com/..." timestamps.txt -o my_chapters
+make run "https://youtube.com/..." timestamps.txt --keep-original
+make run "https://youtube.com/..." timestamps.txt -o audiobook -d temp --force-download
 
-# Force re-download with custom directories
-make split URL="https://youtube.com/..." TIMESTAMPS=chapters.txt FORCE=1 DOWNLOAD_DIR=temp
-
-# Keep the original downloaded file
-make split URL="https://youtube.com/..." TIMESTAMPS=chapters.txt KEEP=1
+# Even shorter with aliases
+make r "https://youtube.com/..." timestamps.txt
+make s "https://youtube.com/..." timestamps.txt --force-download
 
 # Debug: Open shell in container
 make shell
 ```
+
+**All standard script options work:**
+- `-o, --output DIR` - Custom output directory
+- `-d, --download-dir DIR` - Custom download directory
+- `--keep-original` - Keep the original downloaded file
+- `--force-download` - Force re-download even if file exists
 
 ## Manual Installation (Alternative)
 
