@@ -93,13 +93,15 @@ def parse_timestamps_file(filepath: str) -> List[Tuple[int, int, str]]:
     return timestamps
 
 
-def download_youtube_audio(url: str, output_dir: str = "downloads") -> str:
+def download_youtube_audio(url: str, output_dir: str = "downloads", force_download: bool = False) -> str:
     """
     Download YouTube video as MP3.
+    If the file already exists in the output directory, skip downloading unless force_download is True.
 
     Args:
         url: YouTube URL
         output_dir: Directory to save the downloaded file
+        force_download: If True, re-download even if file exists
 
     Returns:
         Path to downloaded MP3 file
@@ -108,6 +110,34 @@ def download_youtube_audio(url: str, output_dir: str = "downloads") -> str:
 
     output_template = os.path.join(output_dir, '%(title)s.%(ext)s')
 
+    # First, get video info without downloading to check if file exists
+    info_opts = {
+        'quiet': True,
+        'no_warnings': True,
+    }
+
+    print(f"Checking video info: {url}")
+
+    with yt_dlp.YoutubeDL(info_opts) as ydl:
+        info = ydl.extract_info(url, download=False)
+        # Construct what the filename would be
+        temp_opts = {'outtmpl': output_template}
+        with yt_dlp.YoutubeDL(temp_opts) as temp_ydl:
+            filename = temp_ydl.prepare_filename(info)
+            mp3_filename = os.path.splitext(filename)[0] + '.mp3'
+
+    # Check if file already exists and we're not forcing download
+    if os.path.exists(mp3_filename) and not force_download:
+        file_size_mb = os.path.getsize(mp3_filename) / (1024 * 1024)
+        print(f"✓ File already exists ({file_size_mb:.1f} MB): {mp3_filename}")
+        print(f"  Skipping download. Use --force-download to re-download.")
+        return mp3_filename
+
+    if os.path.exists(mp3_filename) and force_download:
+        print(f"Force re-download enabled. Removing existing file...")
+        os.remove(mp3_filename)
+
+    # File doesn't exist, proceed with download
     ydl_opts = {
         'format': 'bestaudio/best',
         'postprocessors': [{
@@ -206,6 +236,8 @@ Or simply:
                         help='Directory for downloaded MP3 (default: downloads)')
     parser.add_argument('--keep-original', action='store_true',
                         help='Keep the original downloaded MP3 file')
+    parser.add_argument('--force-download', action='store_true',
+                        help='Force re-download even if file already exists')
 
     args = parser.parse_args()
 
@@ -226,7 +258,7 @@ Or simply:
 
     # Download audio
     try:
-        audio_file = download_youtube_audio(args.url, args.download_dir)
+        audio_file = download_youtube_audio(args.url, args.download_dir, args.force_download)
     except Exception as e:
         print(f"Error downloading audio: {e}", file=sys.stderr)
         sys.exit(1)

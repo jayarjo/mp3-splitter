@@ -53,6 +53,13 @@ docker run --rm \
 docker-compose run --rm mp3-splitter "YOUTUBE_URL" timestamps.txt
 ```
 
+**Force re-download with Docker:**
+```bash
+./run.sh "YOUTUBE_URL" timestamps.txt --force-download
+```
+
+**Note:** Downloaded files are saved to `./downloads/` on your host machine. If a file already exists, it will be reused automatically (skipping the download). This is useful for re-splitting with different timestamps. Use `--force-download` to override.
+
 ## Manual Installation (Alternative)
 
 If you prefer not to use Docker, you can install everything manually:
@@ -121,16 +128,24 @@ python youtube_mp3_splitter.py -o my_tracks "YOUTUBE_URL" timestamps.txt
 python youtube_mp3_splitter.py --keep-original "YOUTUBE_URL" timestamps.txt
 ```
 
+### Force re-download existing file:
+```bash
+python youtube_mp3_splitter.py --force-download "YOUTUBE_URL" timestamps.txt
+```
+
 ### Full options:
 ```bash
-python youtube_mp3_splitter.py [-h] [-o OUTPUT] [-d DOWNLOAD_DIR] [--keep-original] url timestamps
+python youtube_mp3_splitter.py [-h] [-o OUTPUT] [-d DOWNLOAD_DIR] [--keep-original] [--force-download] url timestamps
 ```
 
 **Options:**
 - `-o, --output`: Output directory for split files (default: output)
 - `-d, --download-dir`: Directory for downloaded MP3 (default: downloads)
 - `--keep-original`: Keep the original downloaded MP3 file
+- `--force-download`: Force re-download even if file already exists
 - `-h, --help`: Show help message
+
+**Note:** The script automatically skips downloading if the MP3 file already exists in the download directory. This saves time and bandwidth when re-splitting with different timestamps. Use `--force-download` to override this behavior.
 
 ## Timestamps File Format
 
