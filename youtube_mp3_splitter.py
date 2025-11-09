@@ -11,11 +11,37 @@ import re
 import subprocess
 import shutil
 import time
+import signal
 from pathlib import Path
 from typing import List, Tuple
 import yt_dlp
 from pydub import AudioSegment
 from tqdm import tqdm
+
+
+# Global flag for graceful shutdown
+interrupted = False
+current_track = None
+
+
+def signal_handler(sig, frame):
+    """Handle Ctrl+C gracefully"""
+    global interrupted, current_track
+    interrupted = True
+
+    print("\n\n" + "="*60, flush=True)
+    print("⚠️  Interrupted by user (Ctrl+C)", flush=True)
+    print("="*60, flush=True)
+
+    if current_track:
+        print(f"\nCurrently processing: {current_track}", flush=True)
+        print("⚠️  Note: This track may be incomplete or corrupted.", flush=True)
+
+    print("\n💡 You can resume by running the same command again.", flush=True)
+    print("   Already completed tracks will be automatically skipped.", flush=True)
+    print("\nExiting gracefully...\n", flush=True)
+
+    sys.exit(130)  # Standard exit code for SIGINT
 
 
 def check_ffmpeg():
@@ -260,6 +286,11 @@ def split_audio_ffmpeg(audio_file: str, timestamps: List[Tuple[int, int, str]], 
               leave=True) as pbar:
 
         for i, (start_ms, end_ms, track_name) in enumerate(timestamps, 1):
+            # Check if we've been interrupted
+            global interrupted, current_track
+            if interrupted:
+                break
+
             # If end_ms is None, use the total duration
             if end_ms is None:
                 end_ms = total_duration_ms
@@ -278,6 +309,9 @@ def split_audio_ffmpeg(audio_file: str, timestamps: List[Tuple[int, int, str]], 
             safe_filename = re.sub(r'[<>:"/\\|?*]', '_', track_name)
             safe_filename = f"{i:03d} - {safe_filename}.mp3"
             output_path = os.path.join(output_dir, safe_filename)
+
+            # Set current track for signal handler
+            current_track = f"[{i:03d}/{len(timestamps)}] {track_name}"
 
             # Check if file already exists (resume capability)
             if os.path.exists(output_path):
@@ -346,6 +380,9 @@ def split_audio_ffmpeg(audio_file: str, timestamps: List[Tuple[int, int, str]], 
             except Exception as e:
                 tqdm.write(f"   ❌ Error processing track {i}: {e}")
                 raise
+            finally:
+                # Clear current track after processing (success or failure)
+                current_track = None
 
             # Update progress bar
             pbar.update(1)
@@ -487,6 +524,9 @@ Or simply:
                         help='Force re-download even if file already exists')
 
     args = parser.parse_args()
+
+    # Register signal handler for graceful shutdown
+    signal.signal(signal.SIGINT, signal_handler)
 
     # Check if ffmpeg is available
     if not check_ffmpeg():

@@ -349,20 +349,45 @@ Overall Progress:  2%|█░░░░░░░░░░░░░░░░░| 3/
 
 The script automatically resumes if interrupted! If the process stops for any reason (power failure, Ctrl+C, network issues), simply run the same command again.
 
+**Graceful Interruption:**
+- Press **Ctrl+C** at any time to stop processing
+- Script will exit gracefully with a helpful message
+- Shows which track was being processed when interrupted
+- Reminds you that you can resume by rerunning the same command
+
 **How it works:**
 - Before processing each track, checks if output file already exists
 - If file exists and is valid (>100KB), automatically skips it
 - Continues with remaining unprocessed tracks
 - If file exists but is suspiciously small (<100KB), re-processes it (likely corrupted)
 
+**Example of graceful interruption (Ctrl+C):**
+```
+⏳ [042/170] Processing: Chapter 42 Mysticism
+^C
+
+============================================================
+⚠️  Interrupted by user (Ctrl+C)
+============================================================
+
+Currently processing: [042/170] Chapter 42 Mysticism
+⚠️  Note: This track may be incomplete or corrupted.
+
+💡 You can resume by running the same command again.
+   Already completed tracks will be automatically skipped.
+
+Exiting gracefully...
+```
+
 **Example resumed session:**
 ```
 ⏭️  [001/170] Skipping (already exists): 001 - Chapter 1 Crimson.mp3 (10.2 MB)
 ⏭️  [002/170] Skipping (already exists): 002 - Chapter 2 Situation.mp3 (13.7 MB)
-⏭️  [003/170] Skipping (already exists): 003 - Chapter 3 Melissa.mp3 (11.8 MB)
+...
+⏭️  [041/170] Skipping (already exists): 041 - Chapter 41 Findings.mp3 (11.3 MB)
 
-⏳ [004/170] Processing: Chapter 4 Divination
-   ✓ Saved: 004 - Chapter 4 Divination.mp3 (12.1 MB) | ETA: 18:32
+⏳ [042/170] Processing: Chapter 42 Mysticism
+   ✓ Saved: 042 - Chapter 42 Mysticism.mp3 (12.1 MB) | ETA: 18:32
 ...
 
 ============================================================
