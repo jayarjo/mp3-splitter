@@ -1,0 +1,10 @@
+# Example timestamps file
+# Format 1: start - end trackname
+# 00:00 - 03:45 First Track
+# 03:45 - 07:30 Second Track
+
+# Format 2: start trackname (end is inferred from next start)
+00:00 Introduction
+01:30 Main Theme
+05:15 Bridge Section
+08:45 Final Part
