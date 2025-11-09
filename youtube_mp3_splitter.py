@@ -177,9 +177,35 @@ def download_youtube_audio(url: str, output_dir: str = "downloads", force_downlo
     return mp3_filename
 
 
-def split_audio(audio_file: str, timestamps: List[Tuple[int, int, str]], output_dir: str = "output"):
+def get_audio_duration(audio_file: str) -> float:
     """
-    Split audio file based on timestamps.
+    Get the duration of an audio file using ffprobe (more efficient than loading the whole file).
+
+    Args:
+        audio_file: Path to the audio file
+
+    Returns:
+        Duration in seconds
+    """
+    try:
+        result = subprocess.run(
+            ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
+             '-of', 'default=noprint_wrappers=1:nokey=1', audio_file],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        return float(result.stdout.strip())
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"Failed to get audio duration: {e.stderr}")
+    except ValueError:
+        raise RuntimeError("Failed to parse audio duration from ffprobe output")
+
+
+def split_audio_ffmpeg(audio_file: str, timestamps: List[Tuple[int, int, str]], output_dir: str = "output"):
+    """
+    Split audio file based on timestamps using ffmpeg directly.
+    This is much more memory-efficient for large files than loading them into pydub.
 
     Args:
         audio_file: Path to the MP3 file
@@ -191,6 +217,115 @@ def split_audio(audio_file: str, timestamps: List[Tuple[int, int, str]], output_
         raise FileNotFoundError(f"Audio file not found: {audio_file}")
 
     file_size_mb = os.path.getsize(audio_file) / (1024 * 1024)
+    file_size_gb = file_size_mb / 1024
+
+    print(f"\nPreparing to split audio file: {audio_file}")
+    if file_size_gb >= 1.0:
+        print(f"File size: {file_size_gb:.2f} GB")
+    else:
+        print(f"File size: {file_size_mb:.1f} MB")
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Get duration using ffprobe (doesn't load the whole file)
+    print("Getting audio duration...")
+    try:
+        total_duration_sec = get_audio_duration(audio_file)
+        total_duration_ms = int(total_duration_sec * 1000)
+    except Exception as e:
+        print(f"\n❌ Error getting audio duration: {e}", file=sys.stderr)
+        raise
+
+    hours = int(total_duration_sec // 3600)
+    minutes = int((total_duration_sec % 3600) // 60)
+    seconds = int(total_duration_sec % 60)
+
+    print(f"Total duration: {hours:02d}:{minutes:02d}:{seconds:02d} ({total_duration_sec:.1f} seconds)")
+    print(f"\nSplitting into {len(timestamps)} tracks using ffmpeg (memory-efficient mode)...\n")
+
+    for i, (start_ms, end_ms, track_name) in enumerate(timestamps, 1):
+        # If end_ms is None, use the total duration
+        if end_ms is None:
+            end_ms = total_duration_ms
+
+        # Validate timestamps
+        if start_ms > total_duration_ms:
+            print(f"⚠️  Warning: Track {i} start time ({start_ms/1000:.1f}s) is beyond audio duration ({total_duration_ms/1000:.1f}s). Skipping.", file=sys.stderr)
+            continue
+
+        if end_ms > total_duration_ms:
+            print(f"⚠️  Warning: Track {i} end time ({end_ms/1000:.1f}s) is beyond audio duration. Using end of file.", file=sys.stderr)
+            end_ms = total_duration_ms
+
+        # Sanitize filename
+        safe_filename = re.sub(r'[<>:"/\\|?*]', '_', track_name)
+        safe_filename = f"{i:03d} - {safe_filename}.mp3"
+        output_path = os.path.join(output_dir, safe_filename)
+
+        # Convert milliseconds to seconds for ffmpeg
+        start_sec = start_ms / 1000.0
+        duration_sec = (end_ms - start_ms) / 1000.0
+
+        print(f"[{i}/{len(timestamps)}] Extracting: {safe_filename}")
+        print(f"            Time: {start_sec:.1f}s - {end_ms/1000:.1f}s (duration: {duration_sec:.1f}s)")
+
+        try:
+            # Use ffmpeg to extract the segment
+            # -ss: start time, -t: duration, -c copy would be fastest but we re-encode for consistency
+            cmd = [
+                'ffmpeg',
+                '-y',  # Overwrite output file if exists
+                '-ss', str(start_sec),  # Start time
+                '-t', str(duration_sec),  # Duration
+                '-i', audio_file,  # Input file
+                '-c:a', 'libmp3lame',  # MP3 codec
+                '-b:a', '192k',  # Bitrate
+                '-loglevel', 'error',  # Only show errors
+                output_path
+            ]
+
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+
+            # Get output file size
+            output_size_mb = os.path.getsize(output_path) / (1024 * 1024)
+            print(f"            ✓ Saved: {output_size_mb:.1f} MB\n")
+
+        except subprocess.CalledProcessError as e:
+            print(f"  ❌ Error extracting track {i}: {e.stderr}", file=sys.stderr)
+            raise
+        except Exception as e:
+            print(f"  ❌ Error processing track {i}: {e}", file=sys.stderr)
+            raise
+
+    print(f"✓ All {len(timestamps)} tracks saved to: {output_dir}")
+
+
+def split_audio(audio_file: str, timestamps: List[Tuple[int, int, str]], output_dir: str = "output"):
+    """
+    Split audio file based on timestamps.
+    For large files (>500MB), uses ffmpeg directly for memory efficiency.
+    For smaller files, uses pydub for convenience.
+
+    Args:
+        audio_file: Path to the MP3 file
+        timestamps: List of (start_ms, end_ms, track_name) tuples
+        output_dir: Directory to save split files
+    """
+    # Check file size
+    file_size_mb = os.path.getsize(audio_file) / (1024 * 1024)
+
+    # For files larger than 500MB, use ffmpeg directly to avoid loading into memory
+    if file_size_mb > 500:
+        print(f"Large file detected ({file_size_mb:.1f} MB). Using memory-efficient ffmpeg mode.")
+        return split_audio_ffmpeg(audio_file, timestamps, output_dir)
+
+    # For smaller files, use the original pydub method
+    print(f"Using pydub for processing.")
+
+    # Verify file exists
+    if not os.path.exists(audio_file):
+        raise FileNotFoundError(f"Audio file not found: {audio_file}")
+
     print(f"\nLoading audio file: {audio_file}")
     print(f"File size: {file_size_mb:.1f} MB")
 
@@ -199,7 +334,7 @@ def split_audio(audio_file: str, timestamps: List[Tuple[int, int, str]], output_
     try:
         audio = AudioSegment.from_mp3(audio_file)
     except Exception as e:
-        print(f"\nError loading MP3 file. This usually means ffmpeg is not installed or not accessible.", file=sys.stderr)
+        print(f"\n❌ Error loading MP3 file. This usually means ffmpeg is not installed or not accessible.", file=sys.stderr)
         print(f"Technical error: {e}", file=sys.stderr)
         raise
 
@@ -224,7 +359,7 @@ def split_audio(audio_file: str, timestamps: List[Tuple[int, int, str]], output_
 
         # Sanitize filename
         safe_filename = re.sub(r'[<>:"/\\|?*]', '_', track_name)
-        safe_filename = f"{i:02d} - {safe_filename}.mp3"
+        safe_filename = f"{i:03d} - {safe_filename}.mp3"
         output_path = os.path.join(output_dir, safe_filename)
 
         print(f"Extracting: {safe_filename}")

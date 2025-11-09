@@ -9,6 +9,9 @@ A Python script to download YouTube videos as MP3 and split them into separate t
 - Support multiple timestamp formats
 - Automatic track numbering
 - Clean, sanitized filenames
+- **Memory-efficient processing** - handles large files (tested with 3.36GB, 38+ hours)
+- Smart caching - skip re-downloading existing files
+- Optimized for long-form content (audiobooks, podcasts, lectures)
 
 ## Quick Start with Docker (Recommended)
 
@@ -207,6 +210,48 @@ python youtube_mp3_splitter.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ" my_
 02 - Chapter 1 - Getting Started.mp3
 03 - Chapter 2 - Advanced Topics.mp3
 04 - Conclusion.mp3
+```
+
+## Performance & Large Files
+
+The script automatically optimizes for file size:
+
+- **Small files (<500MB)**: Uses pydub for processing
+- **Large files (≥500MB)**: Automatically switches to memory-efficient ffmpeg mode
+
+### Large File Support
+
+Tested with very large audiobooks:
+- **File size**: 3.36GB
+- **Duration**: 38+ hours
+- **Tracks**: 170 chapters
+- **Processing**: Uses direct ffmpeg streaming (no memory loading)
+
+**Benefits for large files:**
+- Minimal memory usage (doesn't load entire file)
+- Fast processing with progress indicators
+- Handles multi-hour content efficiently
+- Shows file sizes in GB for clarity
+
+**Example output for large files:**
+```
+Large file detected (3445.2 MB). Using memory-efficient ffmpeg mode.
+
+Preparing to split audio file: downloads/audiobook.mp3
+File size: 3.36 GB
+Getting audio duration...
+Total duration: 38:24:15 (138255.0 seconds)
+
+Splitting into 170 tracks using ffmpeg (memory-efficient mode)...
+
+[1/170] Extracting: 001 - Chapter 1 Crimson.mp3
+            Time: 65.0s - 769.0s (duration: 704.0s)
+            ✓ Saved: 10.2 MB
+
+[2/170] Extracting: 002 - Chapter 2 Situation.mp3
+            Time: 769.0s - 1711.0s (duration: 942.0s)
+            ✓ Saved: 13.7 MB
+...
 ```
 
 ## Output
