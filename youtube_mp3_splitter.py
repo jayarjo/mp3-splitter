@@ -186,7 +186,7 @@ def download_youtube_audio(url: str, output_dir: str = "downloads", force_downlo
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
             'preferredcodec': 'mp3',
-            'preferredquality': '192',
+            'preferredquality': '320',
         }],
         'outtmpl': output_template,
         'quiet': False,
@@ -478,7 +478,7 @@ def split_audio(audio_file: str, timestamps: List[Tuple[int, int, str]], output_
             segment = audio[start_ms:end_ms]
 
             # Export
-            segment.export(output_path, format="mp3", bitrate="192k")
+            segment.export(output_path, format="mp3", bitrate="320k")
             print(f"  Saved: {output_path}\n")
         except Exception as e:
             print(f"  Error exporting track {i}: {e}", file=sys.stderr)

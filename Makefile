@@ -58,7 +58,7 @@ download: ## Download MP3 only (no splitting): make download URL
 		-v "$$(pwd)/downloads:/downloads" \
 		-w /downloads \
 		--entrypoint yt-dlp \
-		$(IMAGE_NAME) -x --audio-format mp3 -o "%(title)s.%(ext)s" $(filter-out $@,$(MAKECMDGOALS))
+		$(IMAGE_NAME) -x --audio-format mp3 --audio-quality 320K -o "%(title)s.%(ext)s" $(filter-out $@,$(MAKECMDGOALS))
 	@echo "✓ Download complete! File saved to downloads/"
 
 dl: download ## Shortcut for 'download'
