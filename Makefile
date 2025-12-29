@@ -1,4 +1,4 @@
-.PHONY: help build run split clean rebuild shell test
+.PHONY: help build run split download dl clean rebuild shell test
 
 # Default target
 .DEFAULT_GOAL := help
@@ -17,7 +17,7 @@ help: ## Show this help message
 	@echo "Examples:"
 	@echo "  make run https://youtube.com/watch?v=... timestamps.txt"
 	@echo "  make run https://youtube.com/... timestamps.txt --force-download"
-	@echo "  make run https://youtube.com/... timestamps.txt -o my_chapters --keep-original"
+	@echo "  make download https://youtube.com/watch?v=...  # MP3 only, no splitting"
 
 build: ## Build the Docker image
 	@echo "Building Docker image..."
@@ -44,6 +44,24 @@ run: ## Run the splitter: make run URL TIMESTAMPS [OPTIONS]
 		$(IMAGE_NAME) $(filter-out $@,$(MAKECMDGOALS))
 
 split: run ## Alias for 'run'
+
+download: ## Download MP3 only (no splitting): make download URL
+	@if [ -z "$(filter-out $@,$(MAKECMDGOALS))" ]; then \
+		echo "❌ Error: URL is required"; \
+		echo "Usage: make download <youtube-url>"; \
+		echo "Example: make download https://youtube.com/watch?v=..."; \
+		exit 1; \
+	fi
+	@mkdir -p downloads
+	@echo "Downloading MP3 (no splitting)..."
+	@docker run --rm \
+		-v "$$(pwd)/downloads:/downloads" \
+		-w /downloads \
+		--entrypoint yt-dlp \
+		$(IMAGE_NAME) -x --audio-format mp3 -o "%(title)s.%(ext)s" $(filter-out $@,$(MAKECMDGOALS))
+	@echo "✓ Download complete! File saved to downloads/"
+
+dl: download ## Shortcut for 'download'
 
 # This allows any arguments after the target to be treated as arguments, not targets
 %:
