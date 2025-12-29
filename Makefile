@@ -1,4 +1,4 @@
-.PHONY: help build run split download dl clean rebuild shell test
+.PHONY: help build run split download dl download-aac dla clean rebuild shell test
 
 # Default target
 .DEFAULT_GOAL := help
@@ -16,8 +16,8 @@ help: ## Show this help message
 	@echo ""
 	@echo "Examples:"
 	@echo "  make run https://youtube.com/watch?v=... timestamps.txt"
-	@echo "  make run https://youtube.com/... timestamps.txt --force-download"
-	@echo "  make download https://youtube.com/watch?v=...  # MP3 only, no splitting"
+	@echo "  make download https://youtube.com/watch?v=...      # MP3 320kbps"
+	@echo "  make download-aac https://youtube.com/watch?v=...  # AAC 256kbps"
 
 build: ## Build the Docker image
 	@echo "Building Docker image..."
@@ -62,6 +62,23 @@ download: ## Download MP3 only (no splitting): make download URL
 	@echo "✓ Download complete! File saved to downloads/"
 
 dl: download ## Shortcut for 'download'
+
+download-aac: ## Download as AAC (m4a): make download-aac URL
+	@if [ -z "$(filter-out $@,$(MAKECMDGOALS))" ]; then \
+		echo "❌ Error: URL is required"; \
+		echo "Usage: make download-aac <youtube-url>"; \
+		exit 1; \
+	fi
+	@mkdir -p downloads
+	@echo "Downloading AAC (no splitting)..."
+	@docker run --rm \
+		-v "$$(pwd)/downloads:/downloads" \
+		-w /downloads \
+		--entrypoint yt-dlp \
+		$(IMAGE_NAME) -x --audio-format m4a --audio-quality 256K -o "%(title)s.%(ext)s" $(filter-out $@,$(MAKECMDGOALS))
+	@echo "✓ Download complete! File saved to downloads/"
+
+dla: download-aac ## Shortcut for 'download-aac'
 
 # This allows any arguments after the target to be treated as arguments, not targets
 %:
