@@ -1,4 +1,4 @@
-.PHONY: help build run split download dl download-aac dla clean rebuild shell test
+.PHONY: help build run split download dl download-aac dla clean rebuild shell test update
 
 # Default target
 .DEFAULT_GOAL := help
@@ -29,6 +29,11 @@ rebuild: ## Rebuild the Docker image (no cache)
 	@docker build --no-cache -t $(IMAGE_NAME) .
 	@echo "✓ Rebuild complete!"
 
+update: ## Update yt-dlp (rebuild image, show new version)
+	@echo "Updating yt-dlp..."
+	@docker build --no-cache -t $(IMAGE_NAME) .
+	@echo "✓ yt-dlp updated to $$(docker run --rm --entrypoint yt-dlp $(IMAGE_NAME) --version)"
+
 run: ## Run the splitter: make run URL TIMESTAMPS [OPTIONS]
 	@if [ -z "$(filter-out $@,$(MAKECMDGOALS))" ]; then \
 		echo "❌ Error: URL and TIMESTAMPS are required"; \
@@ -45,8 +50,11 @@ run: ## Run the splitter: make run URL TIMESTAMPS [OPTIONS]
 
 split: run ## Alias for 'run'
 
+# Filter out all known targets from arguments
+DOWNLOAD_ARGS = $(filter-out download dl download-aac dla run split s r,$(MAKECMDGOALS))
+
 download: ## Download MP3 only (no splitting): make download URL
-	@if [ -z "$(filter-out $@,$(MAKECMDGOALS))" ]; then \
+	@if [ -z "$(DOWNLOAD_ARGS)" ]; then \
 		echo "❌ Error: URL is required"; \
 		echo "Usage: make download <youtube-url>"; \
 		echo "Example: make download https://youtube.com/watch?v=..."; \
@@ -58,13 +66,13 @@ download: ## Download MP3 only (no splitting): make download URL
 		-v "$$(pwd)/downloads:/downloads" \
 		-w /downloads \
 		--entrypoint yt-dlp \
-		$(IMAGE_NAME) -x --audio-format mp3 --audio-quality 320K -o "%(title)s.%(ext)s" $(filter-out $@,$(MAKECMDGOALS))
+		$(IMAGE_NAME) --no-warnings -x --audio-format mp3 --audio-quality 320K -o "%(title)s.%(ext)s" $(DOWNLOAD_ARGS)
 	@echo "✓ Download complete! File saved to downloads/"
 
 dl: download ## Shortcut for 'download'
 
 download-aac: ## Download as AAC (m4a): make download-aac URL
-	@if [ -z "$(filter-out $@,$(MAKECMDGOALS))" ]; then \
+	@if [ -z "$(DOWNLOAD_ARGS)" ]; then \
 		echo "❌ Error: URL is required"; \
 		echo "Usage: make download-aac <youtube-url>"; \
 		exit 1; \
@@ -75,7 +83,7 @@ download-aac: ## Download as AAC (m4a): make download-aac URL
 		-v "$$(pwd)/downloads:/downloads" \
 		-w /downloads \
 		--entrypoint yt-dlp \
-		$(IMAGE_NAME) -x --audio-format m4a --audio-quality 256K -o "%(title)s.%(ext)s" $(filter-out $@,$(MAKECMDGOALS))
+		$(IMAGE_NAME) --no-warnings -x --audio-format m4a --audio-quality 256K -o "%(title)s.%(ext)s" $(DOWNLOAD_ARGS)
 	@echo "✓ Download complete! File saved to downloads/"
 
 dla: download-aac ## Shortcut for 'download-aac'
@@ -114,4 +122,5 @@ s: run ## Shortcut for 'run'
 r: run ## Shortcut for 'run'
 b: build ## Shortcut for 'build'
 c: clean ## Shortcut for 'clean'
+u: update ## Shortcut for 'update'
 h: help ## Shortcut for 'help'
