@@ -1,4 +1,4 @@
-.PHONY: help build run split download dl download-aac dla clean rebuild shell test update
+.PHONY: help build run split download dl download-aac dla extract ex clean rebuild shell test update
 
 # Default target
 .DEFAULT_GOAL := help
@@ -18,6 +18,7 @@ help: ## Show this help message
 	@echo "  make run https://youtube.com/watch?v=... timestamps.txt"
 	@echo "  make download https://youtube.com/watch?v=...      # MP3 320kbps"
 	@echo "  make download-aac https://youtube.com/watch?v=...  # AAC 256kbps"
+	@echo "  make extract downloads/video.mp4                   # MP3 320kbps from local video"
 
 build: ## Build the Docker image
 	@echo "Building Docker image..."
@@ -51,7 +52,7 @@ run: ## Run the splitter: make run URL TIMESTAMPS [OPTIONS]
 split: run ## Alias for 'run'
 
 # Filter out all known targets from arguments
-DOWNLOAD_ARGS = $(filter-out download dl download-aac dla run split s r,$(MAKECMDGOALS))
+DOWNLOAD_ARGS = $(filter-out download dl download-aac dla extract ex run split s r,$(MAKECMDGOALS))
 
 download: ## Download MP3 only (no splitting): make download URL
 	@if [ -z "$(DOWNLOAD_ARGS)" ]; then \
@@ -87,6 +88,31 @@ download-aac: ## Download as AAC (m4a): make download-aac URL
 	@echo "✓ Download complete! File saved to downloads/"
 
 dla: download-aac ## Shortcut for 'download-aac'
+
+extract: ## Extract audio as MP3 from local video file: make extract VIDEO
+	@if [ -z "$(DOWNLOAD_ARGS)" ]; then \
+		echo "❌ Error: video file path is required"; \
+		echo "Usage: make extract <video-file>"; \
+		echo "Example: make extract downloads/video.mp4"; \
+		exit 1; \
+	fi
+	@mkdir -p output
+	@INPUT="$(DOWNLOAD_ARGS)"; \
+	if [ ! -f "$$INPUT" ]; then \
+		echo "❌ Error: file not found: $$INPUT"; \
+		exit 1; \
+	fi; \
+	BASENAME="$$(basename "$$INPUT")"; \
+	OUTPUT_NAME="$${BASENAME%.*}.mp3"; \
+	echo "Extracting audio from $$INPUT -> output/$$OUTPUT_NAME..."; \
+	docker run --rm \
+		-v "$$(pwd):/data" \
+		-w /data \
+		--entrypoint ffmpeg \
+		$(IMAGE_NAME) -hide_banner -loglevel warning -stats -y -i "$$INPUT" -vn -acodec libmp3lame -b:a 320k "output/$$OUTPUT_NAME"
+	@echo "✓ Extraction complete! File saved to output/"
+
+ex: extract ## Shortcut for 'extract'
 
 # This allows any arguments after the target to be treated as arguments, not targets
 %:
